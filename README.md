@@ -1,44 +1,71 @@
 # Pulse AI
 
-Pulse AI is a premium, sleek Next.js application that provides a personalized feed of the latest updates across the tech ecosystem.
-
-## Features
-
-- **Personalized Feed:** Get the latest news across various companies, regions, and tech topics.
-- **Dynamic Grouping:** Filter the news by Companies (e.g., Apple, Microsoft, Nvidia), Regions (e.g., North America, Europe), and General Topics.
-- **Premium Aesthetics:** Built with a beautiful dark theme, smooth micro-animations, and vibrant gradients.
-- **Responsive Layout:** A flexible sidebar layout that adapts to large screens and dense information feeds.
-- **Fast and Modern:** Built on Next.js 16 (App Router) and highly optimized for performance and SEO.
+A premium, real-time tech news feed powered by **The Guardian API**. Browse the latest stories across companies, regions, and topics — all in a sleek, dark-mode interface.
 
 ## Live Demo
 
-🚀 **Production URL:** [https://pulse-ai-khaki.vercel.app](https://pulse-ai-khaki.vercel.app)
+🚀 **[https://pulse-ai-khaki.vercel.app](https://pulse-ai-khaki.vercel.app)**
 
-## Local Development
+---
 
-First, ensure you have the required dependencies installed:
+## Features
 
-```bash
-npm install
-```
+- **Real News** — Live articles pulled from The Guardian, refreshed every 5 minutes via server-side caching
+- **Smart Filtering** — Browse by Companies (Apple, Microsoft, Nvidia), Regions (North America, Europe, Asia Pacific), or Topics (AI, Quantum Computing, Space)
+- **Accurate Counts** — Sidebar topic counters reflect actual Guardian article totals fetched in parallel on load
+- **Sort Controls** — Switch between Latest, Trending (by reach), and Top (by engagement)
+- **Bookmark Articles** — Save stories for later within the session
+- **AI Insight Panel** — Daily signal card summarizing the biggest themes
+- **Trending Now** — Derived live from the current feed sorted by estimated reach
+- **Stats Bar** — Real-time metrics: stories loaded, estimated reach, avg engagement, active topics
+- **Skeleton Loaders** — Shimmer placeholders while articles fetch
+- **Error Handling** — Clean error state with a retry button if the API is unreachable
+- **Premium Aesthetics** — Dark theme, ambient glow orbs, engagement progress bars, micro-animations
 
-Then, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
 ## Tech Stack
 
-- **Framework:** [Next.js](https://nextjs.org) (App Router)
-- **Styling:** Custom Vanilla CSS with CSS Variables
-- **Icons:** [Lucide React](https://lucide.dev)
-- **Deployment:** [Vercel](https://vercel.com)
+| Layer       | Technology                          |
+|-------------|-------------------------------------|
+| Framework   | [Next.js 16](https://nextjs.org) (App Router) |
+| Language    | TypeScript                          |
+| Styling     | Vanilla CSS with CSS Variables      |
+| Icons       | [Lucide React](https://lucide.dev)  |
+| News Source | [The Guardian Open Platform](https://open-platform.theguardian.com) |
+| Hosting     | [Vercel](https://vercel.com)        |
+
+---
+
+## Local Development
+
+```bash
+# Install dependencies
+npm install
+
+# Run the dev server
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+> The app uses The Guardian's free `test` API key by default — no setup required.  
+> For higher rate limits, get a free key at [open-platform.theguardian.com](https://open-platform.theguardian.com) and add it to `.env.local`:
+> ```
+> GUARDIAN_API_KEY=your_key_here
+> ```
+
+---
+
+## Project Structure
+
+```
+src/
+├── app/
+│   ├── api/
+│   │   └── news/
+│   │       └── route.ts     # Guardian API proxy (server-side, cached)
+│   ├── globals.css          # Full design system
+│   ├── layout.tsx           # Root layout + metadata
+│   └── page.tsx             # Main feed UI
+```
