@@ -5,15 +5,12 @@ import {
   Building2, MapPin, Tag, Search, Bell, Bookmark, BookmarkCheck,
   Zap, TrendingUp, LayoutGrid, List, SlidersHorizontal,
   MessageSquare, Clock, ChevronUp, Flame, Eye,
-  AlertCircle, RefreshCw,
+  AlertCircle, RefreshCw, Settings, KeyRound, User, LogOut, X, Palette,
 } from "lucide-react";
 
 /* ── Types ─────────────────────────────────────── */
 interface GuardianArticle {
-  id: string;
-  webTitle: string;
-  webUrl: string;
-  webPublicationDate: string;
+  id: string; webTitle: string; webUrl: string; webPublicationDate: string;
   fields?: { trailText?: string; byline?: string; thumbnail?: string };
 }
 interface Article {
@@ -22,39 +19,36 @@ interface Article {
   readTime: string; author: string; authorInitials: string;
   url: string; comments: number; views: number; engagement: number;
 }
-interface Topic {
-  id: string; name: string; type: string; count: number | null;
-}
+interface Topic { id: string; name: string; type: string; count: number | null; }
+
+type OpenPanel = "notif" | "bookmarks" | "profile" | null;
 
 /* ── Topic Definitions ─────────────────────────── */
 const TOPICS_BASE: Omit<Topic, "count">[] = [
-  // Companies
-  { id: "c1", name: "Tata Group",    type: "company" },
-  { id: "c2", name: "Reliance",      type: "company" },
-  { id: "c3", name: "Infosys",       type: "company" },
-  { id: "c4", name: "Zomato",        type: "company" },
-  { id: "c5", name: "Flipkart",      type: "company" },
-  { id: "c6", name: "HDFC",          type: "company" },
-  // Cities / Regions
-  { id: "r1", name: "Bangalore",     type: "region"  },
-  { id: "r2", name: "Mumbai",        type: "region"  },
-  { id: "r3", name: "Delhi NCR",     type: "region"  },
-  { id: "r4", name: "Hyderabad",     type: "region"  },
-  { id: "r5", name: "Pune",          type: "region"  },
-  // Topics
-  { id: "t1", name: "Indian Startups",  type: "topic" },
-  { id: "t2", name: "Indian Economy",   type: "topic" },
-  { id: "t3", name: "ISRO & Space",     type: "topic" },
-  { id: "t4", name: "Fintech & UPI",    type: "topic" },
-  { id: "t5", name: "Digital India",    type: "topic" },
-  { id: "t6", name: "AI in India",      type: "topic" },
+  { id: "c1", name: "Tata Group",       type: "company" },
+  { id: "c2", name: "Reliance",         type: "company" },
+  { id: "c3", name: "Infosys",          type: "company" },
+  { id: "c4", name: "Zomato",           type: "company" },
+  { id: "c5", name: "Flipkart",         type: "company" },
+  { id: "c6", name: "HDFC",             type: "company" },
+  { id: "r1", name: "Bangalore",        type: "region"  },
+  { id: "r2", name: "Mumbai",           type: "region"  },
+  { id: "r3", name: "Delhi NCR",        type: "region"  },
+  { id: "r4", name: "Hyderabad",        type: "region"  },
+  { id: "r5", name: "Pune",             type: "region"  },
+  { id: "t1", name: "Indian Startups",  type: "topic"   },
+  { id: "t2", name: "Indian Economy",   type: "topic"   },
+  { id: "t3", name: "ISRO & Space",     type: "topic"   },
+  { id: "t4", name: "Fintech & UPI",    type: "topic"   },
+  { id: "t5", name: "Digital India",    type: "topic"   },
+  { id: "t6", name: "AI in India",      type: "topic"   },
 ];
 
-const ACTIVITY = [
-  { color: "blue",   text: <><strong>Tata Group</strong> headlines dominate your feed</>,          time: "4m ago"  },
-  { color: "purple", text: <><strong>5 new stories</strong> added to Indian Startups</>,           time: "22m ago" },
-  { color: "green",  text: <><strong>ISRO & Space</strong> has a major update today</>,            time: "1h ago"  },
-  { color: "amber",  text: <>Your saved story on <strong>UPI & Fintech</strong> was updated</>,    time: "3h ago"  },
+const NOTIFICATIONS = [
+  { color: "blue",   text: <><strong>Tata Group</strong> headlines dominate your feed</>,        time: "4m ago"  },
+  { color: "purple", text: <><strong>5 new stories</strong> added to Indian Startups</>,         time: "22m ago" },
+  { color: "green",  text: <><strong>ISRO & Space</strong> has a major update today</>,           time: "1h ago"  },
+  { color: "amber",  text: <>Your saved story on <strong>UPI & Fintech</strong> was updated</>,  time: "3h ago"  },
 ];
 
 /* ── Helpers ───────────────────────────────────── */
@@ -84,16 +78,13 @@ function transform(raw: GuardianArticle, topic: string, topicType: string): Arti
     readTime: `${3 + (h % 7)} min`,
     author: byline, authorInitials: getInitials(byline),
     url: raw.webUrl,
-    comments: 50  + (h % 400),
-    views:    800 + (h % 18000),
-    engagement: 40 + (h % 55),
+    comments: 50 + (h % 400), views: 800 + (h % 18000), engagement: 40 + (h % 55),
   };
 }
 
 /* ── API helpers ───────────────────────────────── */
 async function fetchArticles(topic: string): Promise<Article[]> {
-  const topicData = TOPICS_BASE.find(t => t.name === topic);
-  const topicType = topicData?.type ?? "topic";
+  const topicType = TOPICS_BASE.find(t => t.name === topic)?.type ?? "topic";
   const res = await fetch(`/api/news?topic=${encodeURIComponent(topic)}`);
   if (!res.ok) throw new Error(`API error ${res.status}`);
   const data = await res.json();
@@ -124,14 +115,11 @@ function SkeletonCards() {
   );
 }
 
-/* ── Badge icon by type ────────────────────────── */
 function BadgeIcon({ type }: { type: string }) {
   if (type === "company") return <Building2 size={10} />;
   if (type === "region")  return <MapPin size={10} />;
   return <Tag size={10} />;
 }
-
-/* ── Count badge ───────────────────────────────── */
 function CountBadge({ n }: { n: number | null }) {
   if (n === null) return <span className="nav-count">…</span>;
   return <span className="nav-count">{n >= 1000 ? `${(n / 1000).toFixed(0)}k` : n}</span>;
@@ -139,16 +127,18 @@ function CountBadge({ n }: { n: number | null }) {
 
 /* ── Main ──────────────────────────────────────── */
 export default function Home() {
-  const [activeTopic, setActiveTopic] = useState<string>("All Stories");
-  const [articles,    setArticles]    = useState<Article[]>([]);
-  const [topics,      setTopics]      = useState<Topic[]>(
-    TOPICS_BASE.map(t => ({ ...t, count: null }))
-  );
-  const [allCount,    setAllCount]    = useState<number | null>(null);
-  const [loading,     setLoading]     = useState(true);
-  const [error,       setError]       = useState<string | null>(null);
-  const [sortBy,      setSortBy]      = useState<"latest" | "trending" | "top">("latest");
-  const [bookmarked,  setBookmarked]  = useState<Set<string>>(new Set());
+  const [activeTopic,        setActiveTopic]        = useState("All Stories");
+  const [articles,           setArticles]           = useState<Article[]>([]);
+  const [topics,             setTopics]             = useState<Topic[]>(TOPICS_BASE.map(t => ({ ...t, count: null })));
+  const [allCount,           setAllCount]           = useState<number | null>(null);
+  const [loading,            setLoading]            = useState(true);
+  const [error,              setError]              = useState<string | null>(null);
+  const [sortBy,             setSortBy]             = useState<"latest" | "trending" | "top">("latest");
+  const [bookmarkedArticles, setBookmarkedArticles] = useState<Article[]>([]);
+  const [openPanel,          setOpenPanel]          = useState<OpenPanel>(null);
+  const [notifRead,          setNotifRead]          = useState(false);
+
+  const bookmarkedIds = new Set(bookmarkedArticles.map(a => a.id));
 
   const loadArticles = useCallback(async (topic: string) => {
     setLoading(true); setError(null);
@@ -157,41 +147,39 @@ export default function Home() {
     finally { setLoading(false); }
   }, []);
 
-  // Initial load: articles + all counts in parallel
   useEffect(() => {
     loadArticles("All Stories");
     fetchCount("All Stories").then(n => setAllCount(n));
-    Promise.all(
-      TOPICS_BASE.map(t => fetchCount(t.name).then(n => ({ id: t.id, count: n })))
-    ).then(results =>
-      setTopics(prev =>
-        prev.map(t => ({ ...t, count: results.find(r => r.id === t.id)?.count ?? t.count }))
-      )
-    );
+    Promise.all(TOPICS_BASE.map(t => fetchCount(t.name).then(n => ({ id: t.id, count: n }))))
+      .then(results =>
+        setTopics(prev => prev.map(t => ({ ...t, count: results.find(r => r.id === t.id)?.count ?? t.count })))
+      );
   }, [loadArticles]);
 
   useEffect(() => { loadArticles(activeTopic); }, [activeTopic, loadArticles]);
 
   const sorted = [...articles].sort((a, b) =>
-    sortBy === "trending" ? b.views - a.views :
-    sortBy === "top"      ? b.engagement - a.engagement : 0
+    sortBy === "trending" ? b.views - a.views : sortBy === "top" ? b.engagement - a.engagement : 0
   );
-
   const totalViews    = articles.reduce((s, a) => s + a.views, 0);
-  const avgEngagement = articles.length
-    ? Math.round(articles.reduce((s, a) => s + a.engagement, 0) / articles.length) : 0;
-
-  const trending = [...articles]
-    .sort((a, b) => b.views - a.views).slice(0, 5)
+  const avgEngagement = articles.length ? Math.round(articles.reduce((s, a) => s + a.engagement, 0) / articles.length) : 0;
+  const trending = [...articles].sort((a, b) => b.views - a.views).slice(0, 5)
     .map(a => ({ name: a.title.length > 42 ? a.title.slice(0, 42) + "…" : a.title, count: `${(a.views / 1000).toFixed(1)}k views` }));
 
   const companies = topics.filter(t => t.type === "company");
   const regions   = topics.filter(t => t.type === "region");
   const topicList = topics.filter(t => t.type === "topic");
 
-  function toggleBookmark(id: string) {
-    setBookmarked(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  function toggleBookmark(article: Article) {
+    setBookmarkedArticles(prev =>
+      prev.find(a => a.id === article.id) ? prev.filter(a => a.id !== article.id) : [...prev, article]
+    );
   }
+  function togglePanel(name: OpenPanel) {
+    if (name === "notif") setNotifRead(true);
+    setOpenPanel(prev => prev === name ? null : name);
+  }
+  function closePanel() { setOpenPanel(null); }
 
   return (
     <div className="app-wrap">
@@ -208,18 +196,13 @@ export default function Home() {
           <span className="brand-name">Pulse AI</span>
           <span className="brand-badge">India</span>
         </div>
-
-        <button
-          className={`nav-btn ${activeTopic === "All Stories" ? "active" : ""}`}
-          onClick={() => setActiveTopic("All Stories")}
-        >
+        <button className={`nav-btn ${activeTopic === "All Stories" ? "active" : ""}`}
+          onClick={() => setActiveTopic("All Stories")}>
           <LayoutGrid className="nav-icon" size={16} />
           <span className="nav-label">All Stories</span>
           <CountBadge n={allCount} />
         </button>
-
         <div className="sidebar-divider" />
-
         <p className="nav-section-label">Companies</p>
         {companies.map(t => (
           <button key={t.id} className={`nav-btn ${activeTopic === t.name ? "active" : ""}`}
@@ -229,7 +212,6 @@ export default function Home() {
             <CountBadge n={t.count} />
           </button>
         ))}
-
         <p className="nav-section-label">Cities & Hubs</p>
         {regions.map(t => (
           <button key={t.id} className={`nav-btn ${activeTopic === t.name ? "active" : ""}`}
@@ -239,7 +221,6 @@ export default function Home() {
             <CountBadge n={t.count} />
           </button>
         ))}
-
         <p className="nav-section-label">Topics</p>
         {topicList.map(t => (
           <button key={t.id} className={`nav-btn ${activeTopic === t.name ? "active" : ""}`}
@@ -253,20 +234,132 @@ export default function Home() {
 
       {/* ── Main ── */}
       <div className="main">
+        {/* Topbar */}
         <header className="topbar">
           <div className="search-wrap">
             <Search className="search-icon-inner" size={16} />
-            <input className="search-input" type="text"
-              placeholder="Search India tech, startups, markets…" />
+            <input className="search-input" type="text" placeholder="Search India tech, startups, markets…" />
             <div className="search-shortcut">
-              <kbd className="kbd">⌘</kbd>
-              <kbd className="kbd">K</kbd>
+              <kbd className="kbd">⌘</kbd><kbd className="kbd">K</kbd>
             </div>
           </div>
+
+          {/* Click-outside overlay */}
+          {openPanel && <div className="dropdown-overlay" onClick={closePanel} />}
+
           <div className="topbar-actions">
-            <button className="icon-btn"><Bell size={17} /><span className="notif-dot" /></button>
-            <button className="icon-btn"><Bookmark size={17} /></button>
-            <div className="avatar">AM</div>
+
+            {/* ── Bell ── */}
+            <div className="topbar-btn-wrap">
+              <button className="icon-btn" onClick={() => togglePanel("notif")}
+                style={{ borderColor: openPanel === "notif" ? "var(--border-hover)" : undefined }}>
+                <Bell size={17} />
+                {!notifRead && <span className="notif-dot" />}
+              </button>
+              {openPanel === "notif" && (
+                <div className="topbar-dropdown notif-dropdown">
+                  <div className="dropdown-header">
+                    <span className="dropdown-title">Notifications</span>
+                    <button className="dropdown-clear" onClick={() => setNotifRead(true)}>
+                      Mark all read
+                    </button>
+                  </div>
+                  {NOTIFICATIONS.map((n, i) => (
+                    <div key={i} className="notif-item">
+                      <div className={`notif-color-dot ${n.color}`} />
+                      <div className="notif-body">
+                        <div className="notif-text">{n.text}</div>
+                        <div className="notif-time">{n.time}</div>
+                      </div>
+                      {!notifRead && <div className="notif-unread-dot" />}
+                    </div>
+                  ))}
+                  <div className="dropdown-footer">
+                    <button className="dropdown-footer-btn">View all activity →</button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ── Bookmarks ── */}
+            <div className="topbar-btn-wrap">
+              <button className="icon-btn" onClick={() => togglePanel("bookmarks")}
+                style={{ borderColor: openPanel === "bookmarks" ? "var(--border-hover)" : undefined }}>
+                <Bookmark size={17} />
+                {bookmarkedArticles.length > 0 && (
+                  <span className="notif-dot" style={{ background: "var(--amber)" }} />
+                )}
+              </button>
+              {openPanel === "bookmarks" && (
+                <div className="topbar-dropdown bookmark-dropdown">
+                  <div className="dropdown-header">
+                    <span className="dropdown-title">
+                      Saved Articles {bookmarkedArticles.length > 0 && `(${bookmarkedArticles.length})`}
+                    </span>
+                    {bookmarkedArticles.length > 0 && (
+                      <button className="dropdown-clear" onClick={() => setBookmarkedArticles([])}>
+                        Clear all
+                      </button>
+                    )}
+                  </div>
+                  <div className="bookmark-list">
+                    {bookmarkedArticles.length === 0 ? (
+                      <div className="bookmark-empty">
+                        <div className="bookmark-empty-icon"><Bookmark size={20} /></div>
+                        <p className="bookmark-empty-title">No saved articles</p>
+                        <p className="bookmark-empty-sub">Bookmark stories from the feed to read them later</p>
+                      </div>
+                    ) : (
+                      bookmarkedArticles.map(article => (
+                        <a key={article.id} href={article.url} target="_blank" rel="noopener noreferrer"
+                          className="bookmark-item">
+                          <div className="bookmark-item-title">{article.title}</div>
+                          <div className="bookmark-item-footer">
+                            <span className={`badge ${article.topicType}`} style={{ padding: "0.1rem 0.5rem", fontSize: "0.65rem" }}>
+                              {article.topic}
+                            </span>
+                            <span className="bookmark-item-date">{article.date}</span>
+                          </div>
+                          <button className="bookmark-remove"
+                            onClick={e => { e.preventDefault(); e.stopPropagation(); toggleBookmark(article); }}
+                            title="Remove bookmark">
+                            <X size={13} />
+                          </button>
+                        </a>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ── Avatar / Profile ── */}
+            <div className="topbar-btn-wrap">
+              <div className="avatar" onClick={() => togglePanel("profile")}
+                style={{ borderColor: openPanel === "profile" ? "rgba(255,255,255,0.4)" : undefined }}>
+                AM
+              </div>
+              {openPanel === "profile" && (
+                <div className="topbar-dropdown profile-dropdown">
+                  <div className="profile-header-row">
+                    <div className="profile-avatar-lg">AM</div>
+                    <div>
+                      <div className="profile-name">Arush Mehta</div>
+                      <div className="profile-email">arush@pulseai.in</div>
+                    </div>
+                  </div>
+                  <div className="profile-menu">
+                    <button className="profile-menu-item"><User size={15} /> Profile</button>
+                    <button className="profile-menu-item"><Settings size={15} /> Settings</button>
+                    <button className="profile-menu-item"><Palette size={15} /> Preferences</button>
+                    <button className="profile-menu-item"><KeyRound size={15} /> Keyboard Shortcuts</button>
+                    <div className="profile-menu-divider" />
+                    <button className="profile-menu-item danger"><LogOut size={15} /> Sign Out</button>
+                  </div>
+                </div>
+              )}
+            </div>
+
           </div>
         </header>
 
@@ -306,7 +399,6 @@ export default function Home() {
 
         <div className="content-layout">
           <div className="feed-area">
-            {/* Feed Header */}
             <div className="feed-header anim-fade-up d-1">
               <div className="feed-title-group">
                 <h1 className="feed-title">{activeTopic}</h1>
@@ -318,18 +410,16 @@ export default function Home() {
               </div>
               <div className="feed-controls">
                 {(["latest", "trending", "top"] as const).map(s => (
-                  <button key={s} className={`filter-btn ${sortBy === s ? "active" : ""}`}
-                    onClick={() => setSortBy(s)}>
-                    {s === "latest" && <><Clock size={13} /> Latest</>}
+                  <button key={s} className={`filter-btn ${sortBy === s ? "active" : ""}`} onClick={() => setSortBy(s)}>
+                    {s === "latest"   && <><Clock size={13} /> Latest</>}
                     {s === "trending" && <><TrendingUp size={13} /> Trending</>}
-                    {s === "top" && <><Flame size={13} /> Top</>}
+                    {s === "top"      && <><Flame size={13} /> Top</>}
                   </button>
                 ))}
                 <button className="filter-btn"><SlidersHorizontal size={13} /></button>
               </div>
             </div>
 
-            {/* Feed Content */}
             {loading ? (
               <SkeletonCards />
             ) : error ? (
@@ -338,28 +428,25 @@ export default function Home() {
                 <p className="error-title">Couldn't load stories</p>
                 <p className="error-sub">{error}</p>
                 <button className="retry-btn" onClick={() => loadArticles(activeTopic)}>
-                  <RefreshCw size={13} style={{ display:"inline", marginRight:"0.4rem" }} />
-                  Retry
+                  <RefreshCw size={13} style={{ display:"inline", marginRight:"0.4rem" }} />Retry
                 </button>
               </div>
             ) : sorted.length > 0 ? (
               <div className="feed-grid">
                 {sorted.map((article, i) => {
-                  const isBookmarked = bookmarked.has(article.id);
+                  const isBookmarked = bookmarkedIds.has(article.id);
                   return (
-                    <a key={article.id} href={article.url} target="_blank" rel="noopener noreferrer"
-                      className="card-link">
-                      <article className="card anim-fade-up"
-                        style={{ animationDelay: `${0.06 + i * 0.06}s` }}>
+                    <a key={article.id} href={article.url} target="_blank" rel="noopener noreferrer" className="card-link">
+                      <article className="card anim-fade-up" style={{ animationDelay: `${0.06 + i * 0.06}s` }}>
                         <div className="card-top">
                           <span className={`badge ${article.topicType}`}>
-                            <BadgeIcon type={article.topicType} />
-                            {article.topic}
+                            <BadgeIcon type={article.topicType} />{article.topic}
                           </span>
                           <div className="card-actions">
                             <button
                               className={`card-icon-btn ${isBookmarked ? "bookmarked" : ""}`}
-                              onClick={e => { e.preventDefault(); toggleBookmark(article.id); }}
+                              onClick={e => { e.preventDefault(); toggleBookmark(article); }}
+                              title={isBookmarked ? "Remove bookmark" : "Save article"}
                             >
                               {isBookmarked ? <BookmarkCheck size={15} /> : <Bookmark size={15} />}
                             </button>
@@ -399,7 +486,6 @@ export default function Home() {
 
           {/* ── Right Panel ── */}
           <aside className="right-panel">
-            {/* India Signal */}
             <div className="anim-slide-in d-1">
               <p className="panel-title">India Signal</p>
               <div className="insight-card">
@@ -421,44 +507,38 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Trending */}
             <div className="anim-slide-in d-2">
               <p className="panel-title">Trending Now</p>
               <div className="trend-list">
-                {trending.length > 0 ? (
-                  trending.map((t, i) => (
-                    <div key={i} className="trend-item">
-                      <span className="trend-rank">{i + 1}</span>
-                      <div className="trend-info">
-                        <div className="trend-name">{t.name}</div>
-                        <div className="trend-count">{t.count}</div>
-                      </div>
-                      <ChevronUp className="trend-arrow up" size={15} />
+                {trending.length > 0 ? trending.map((t, i) => (
+                  <div key={i} className="trend-item">
+                    <span className="trend-rank">{i + 1}</span>
+                    <div className="trend-info">
+                      <div className="trend-name">{t.name}</div>
+                      <div className="trend-count">{t.count}</div>
                     </div>
-                  ))
-                ) : loading ? (
-                  Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="trend-item">
-                      <span className="trend-rank">{i + 1}</span>
-                      <div className="trend-info">
-                        <div className="skeleton skeleton-line w-full" style={{ height: 11 }} />
-                        <div className="skeleton skeleton-line w-1-3" style={{ height: 9, marginTop: 4 }} />
-                      </div>
+                    <ChevronUp className="trend-arrow up" size={15} />
+                  </div>
+                )) : loading ? Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="trend-item">
+                    <span className="trend-rank">{i + 1}</span>
+                    <div className="trend-info">
+                      <div className="skeleton skeleton-line w-full" style={{ height: 11 }} />
+                      <div className="skeleton skeleton-line w-1-3" style={{ height: 9, marginTop: 4 }} />
                     </div>
-                  ))
-                ) : null}
+                  </div>
+                )) : null}
               </div>
             </div>
 
-            {/* Activity */}
             <div className="anim-slide-in d-3">
               <p className="panel-title">Recent Activity</p>
               <div className="activity-list">
-                {ACTIVITY.map((a, i) => (
+                {NOTIFICATIONS.map((a, i) => (
                   <div key={i} className="activity-item">
                     <div className="activity-dot-wrap">
                       <div className={`activity-dot ${a.color}`} />
-                      {i < ACTIVITY.length - 1 && <div className="activity-line" />}
+                      {i < NOTIFICATIONS.length - 1 && <div className="activity-line" />}
                     </div>
                     <div>
                       <div className="activity-text">{a.text}</div>
