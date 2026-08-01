@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Ecosystem Feed",
+  title: "Pulse AI",
   description: "Your personalized feed of the latest updates across the tech ecosystem.",
 };
 

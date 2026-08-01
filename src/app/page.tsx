@@ -98,7 +98,7 @@ export default function Home() {
       <aside className="sidebar">
         <div className="brand">
           <Hexagon className="brand-icon" size={28} />
-          <span>Ecosystem</span>
+          <span>Pulse AI</span>
         </div>
 
         <button 
