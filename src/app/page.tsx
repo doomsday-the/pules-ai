@@ -5,7 +5,7 @@ import {
   Building2, MapPin, Tag, Search, Bell, Bookmark, BookmarkCheck,
   Zap, TrendingUp, LayoutGrid, List, SlidersHorizontal,
   MessageSquare, Clock, ChevronUp, Flame, Eye,
-  AlertCircle, RefreshCw, Settings, KeyRound, User, LogOut, X, Palette,
+  AlertCircle, RefreshCw, Settings, KeyRound, User, LogOut, X, Palette, CheckCircle2
 } from "lucide-react";
 
 /* ── Types ─────────────────────────────────────── */
@@ -137,8 +137,16 @@ export default function Home() {
   const [bookmarkedArticles, setBookmarkedArticles] = useState<Article[]>([]);
   const [openPanel,          setOpenPanel]          = useState<OpenPanel>(null);
   const [notifRead,          setNotifRead]          = useState(false);
+  const [toast,              setToast]              = useState<{ id: number; msg: string; closing: boolean } | null>(null);
 
   const bookmarkedIds = new Set(bookmarkedArticles.map(a => a.id));
+
+  function showToast(msg: string) {
+    const id = Date.now();
+    setToast({ id, msg, closing: false });
+    setTimeout(() => setToast(prev => (prev?.id === id ? { ...prev, closing: true } : prev)), 3000);
+    setTimeout(() => setToast(prev => (prev?.id === id ? null : prev)), 3300);
+  }
 
   const loadArticles = useCallback(async (topic: string) => {
     setLoading(true); setError(null);
@@ -275,7 +283,9 @@ export default function Home() {
                     </div>
                   ))}
                   <div className="dropdown-footer">
-                    <button className="dropdown-footer-btn">View all activity →</button>
+                    <button className="dropdown-footer-btn" onClick={() => { showToast("Activity feed opened"); closePanel(); }}>
+                      View all activity →
+                    </button>
                   </div>
                 </div>
               )}
@@ -349,12 +359,12 @@ export default function Home() {
                     </div>
                   </div>
                   <div className="profile-menu">
-                    <button className="profile-menu-item"><User size={15} /> Profile</button>
-                    <button className="profile-menu-item"><Settings size={15} /> Settings</button>
-                    <button className="profile-menu-item"><Palette size={15} /> Preferences</button>
-                    <button className="profile-menu-item"><KeyRound size={15} /> Keyboard Shortcuts</button>
+                    <button className="profile-menu-item" onClick={() => { showToast("Profile settings opened"); closePanel(); }}><User size={15} /> Profile</button>
+                    <button className="profile-menu-item" onClick={() => { showToast("Settings panel opened"); closePanel(); }}><Settings size={15} /> Settings</button>
+                    <button className="profile-menu-item" onClick={() => { showToast("Preferences panel opened"); closePanel(); }}><Palette size={15} /> Preferences</button>
+                    <button className="profile-menu-item" onClick={() => { showToast("Keyboard shortcuts: ⌘K to search"); closePanel(); }}><KeyRound size={15} /> Keyboard Shortcuts</button>
                     <div className="profile-menu-divider" />
-                    <button className="profile-menu-item danger"><LogOut size={15} /> Sign Out</button>
+                    <button className="profile-menu-item danger" onClick={() => { showToast("Signed out successfully"); closePanel(); }}><LogOut size={15} /> Sign Out</button>
                   </div>
                 </div>
               )}
@@ -551,6 +561,16 @@ export default function Home() {
           </aside>
         </div>
       </div>
+
+      {/* ── Toast Container ── */}
+      {toast && (
+        <div className="toast-container">
+          <div className={`toast ${toast.closing ? "closing" : ""}`}>
+            <CheckCircle2 size={18} className="toast-icon" />
+            <span>{toast.msg}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
