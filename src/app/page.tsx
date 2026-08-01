@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  Building2, Globe, Tag, Search, Bell, Bookmark, BookmarkCheck,
+  Building2, MapPin, Tag, Search, Bell, Bookmark, BookmarkCheck,
   Zap, TrendingUp, LayoutGrid, List, SlidersHorizontal,
-  MessageSquare, Clock, ChevronUp, ChevronRight, Flame, Eye,
+  MessageSquare, Clock, ChevronUp, Flame, Eye,
   AlertCircle, RefreshCw,
 } from "lucide-react";
 
@@ -16,48 +16,45 @@ interface GuardianArticle {
   webPublicationDate: string;
   fields?: { trailText?: string; byline?: string; thumbnail?: string };
 }
-
 interface Article {
-  id: string;
-  title: string;
-  description: string;
-  topic: string;
-  topicType: string;
-  date: string;
-  readTime: string;
-  author: string;
-  authorInitials: string;
-  url: string;
-  comments: number;
-  views: number;
-  engagement: number;
+  id: string; title: string; description: string;
+  topic: string; topicType: string; date: string;
+  readTime: string; author: string; authorInitials: string;
+  url: string; comments: number; views: number; engagement: number;
 }
-
 interface Topic {
-  id: string;
-  name: string;
-  type: string;
-  count: number | null; // null = loading
+  id: string; name: string; type: string; count: number | null;
 }
 
-/* ── Static topic list ─────────────────────────── */
+/* ── Topic Definitions ─────────────────────────── */
 const TOPICS_BASE: Omit<Topic, "count">[] = [
-  { id: "1",  name: "Apple",                   type: "company" },
-  { id: "2",  name: "Microsoft",               type: "company" },
-  { id: "3",  name: "Nvidia",                  type: "company" },
-  { id: "4",  name: "North America",           type: "region"  },
-  { id: "5",  name: "Europe",                  type: "region"  },
-  { id: "6",  name: "Asia Pacific",            type: "region"  },
-  { id: "7",  name: "Artificial Intelligence", type: "topic"   },
-  { id: "8",  name: "Quantum Computing",       type: "topic"   },
-  { id: "9",  name: "Space Exploration",       type: "topic"   },
+  // Companies
+  { id: "c1", name: "Tata Group",    type: "company" },
+  { id: "c2", name: "Reliance",      type: "company" },
+  { id: "c3", name: "Infosys",       type: "company" },
+  { id: "c4", name: "Zomato",        type: "company" },
+  { id: "c5", name: "Flipkart",      type: "company" },
+  { id: "c6", name: "HDFC",          type: "company" },
+  // Cities / Regions
+  { id: "r1", name: "Bangalore",     type: "region"  },
+  { id: "r2", name: "Mumbai",        type: "region"  },
+  { id: "r3", name: "Delhi NCR",     type: "region"  },
+  { id: "r4", name: "Hyderabad",     type: "region"  },
+  { id: "r5", name: "Pune",          type: "region"  },
+  // Topics
+  { id: "t1", name: "Indian Startups",  type: "topic" },
+  { id: "t2", name: "Indian Economy",   type: "topic" },
+  { id: "t3", name: "ISRO & Space",     type: "topic" },
+  { id: "t4", name: "Fintech & UPI",    type: "topic" },
+  { id: "t5", name: "Digital India",    type: "topic" },
+  { id: "t6", name: "AI in India",      type: "topic" },
 ];
 
 const ACTIVITY = [
-  { color: "blue",   text: <><strong>AI Reasoning paper</strong> is trending in your feed</>,  time: "2m ago"  },
-  { color: "purple", text: <><strong>3 new stories</strong> added to Nvidia</>,                time: "18m ago" },
-  { color: "green",  text: <><strong>Space Exploration</strong> has a new top article</>,       time: "1h ago"  },
-  { color: "blue",   text: <>Your saved story on <strong>EU regulation</strong> was updated</>, time: "3h ago"  },
+  { color: "blue",   text: <><strong>Tata Group</strong> headlines dominate your feed</>,          time: "4m ago"  },
+  { color: "purple", text: <><strong>5 new stories</strong> added to Indian Startups</>,           time: "22m ago" },
+  { color: "green",  text: <><strong>ISRO & Space</strong> has a major update today</>,            time: "1h ago"  },
+  { color: "amber",  text: <>Your saved story on <strong>UPI & Fintech</strong> was updated</>,    time: "3h ago"  },
 ];
 
 /* ── Helpers ───────────────────────────────────── */
@@ -66,53 +63,43 @@ function hashStr(s: string): number {
   for (let i = 0; i < s.length; i++) h = (h * 33) ^ s.charCodeAt(i);
   return Math.abs(h >>> 0);
 }
-
 function relativeTime(iso: string): string {
   const diff = (Date.now() - new Date(iso).getTime()) / 1000;
-  if (diff < 3600)    return `${Math.floor(diff / 60)} min ago`;
-  if (diff < 86400)   return `${Math.floor(diff / 3600)}h ago`;
-  if (diff < 604800)  return `${Math.floor(diff / 86400)}d ago`;
+  if (diff < 3600)   return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400)  return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
   return `${Math.floor(diff / 604800)}w ago`;
 }
-
 function getInitials(name: string): string {
-  return name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase() || "SR";
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase() || "IN";
 }
-
 function transform(raw: GuardianArticle, topic: string, topicType: string): Article {
   const h = hashStr(raw.id);
   const byline = raw.fields?.byline?.replace(/<[^>]+>/g, "") ?? "Staff Reporter";
   return {
-    id:            raw.id,
-    title:         raw.webTitle,
-    description:   raw.fields?.trailText?.replace(/<[^>]+>/g, "") ?? "",
-    topic,
-    topicType,
-    date:          relativeTime(raw.webPublicationDate),
-    readTime:      `${3 + (h % 7)} min`,
-    author:        byline,
-    authorInitials: getInitials(byline),
-    url:           raw.webUrl,
-    comments:      50  + (h % 400),
-    views:         800 + (h % 18000),
-    engagement:    40  + (h % 55),
+    id: raw.id, title: raw.webTitle,
+    description: raw.fields?.trailText?.replace(/<[^>]+>/g, "") ?? "",
+    topic, topicType,
+    date: relativeTime(raw.webPublicationDate),
+    readTime: `${3 + (h % 7)} min`,
+    author: byline, authorInitials: getInitials(byline),
+    url: raw.webUrl,
+    comments: 50  + (h % 400),
+    views:    800 + (h % 18000),
+    engagement: 40 + (h % 55),
   };
 }
 
-/* ── Fetch helpers ─────────────────────────────── */
+/* ── API helpers ───────────────────────────────── */
 async function fetchArticles(topic: string): Promise<Article[]> {
   const topicData = TOPICS_BASE.find(t => t.name === topic);
   const topicType = topicData?.type ?? "topic";
-
   const res = await fetch(`/api/news?topic=${encodeURIComponent(topic)}`);
   if (!res.ok) throw new Error(`API error ${res.status}`);
   const data = await res.json();
   if (data.error) throw new Error(data.error);
-
-  const results: GuardianArticle[] = data.response?.results ?? [];
-  return results.map(r => transform(r, topic, topicType));
+  return (data.response?.results ?? []).map((r: GuardianArticle) => transform(r, topic, topicType));
 }
-
 async function fetchCount(topic: string): Promise<number> {
   const res = await fetch(`/api/news?topic=${encodeURIComponent(topic)}&countOnly=true`);
   if (!res.ok) return 0;
@@ -120,7 +107,7 @@ async function fetchCount(topic: string): Promise<number> {
   return data.response?.total ?? 0;
 }
 
-/* ── SkeletonCards ─────────────────────────────── */
+/* ── Skeleton ──────────────────────────────────── */
 function SkeletonCards() {
   return (
     <div className="feed-grid">
@@ -137,95 +124,77 @@ function SkeletonCards() {
   );
 }
 
-/* ── Main Component ────────────────────────────── */
+/* ── Badge icon by type ────────────────────────── */
+function BadgeIcon({ type }: { type: string }) {
+  if (type === "company") return <Building2 size={10} />;
+  if (type === "region")  return <MapPin size={10} />;
+  return <Tag size={10} />;
+}
+
+/* ── Count badge ───────────────────────────────── */
+function CountBadge({ n }: { n: number | null }) {
+  if (n === null) return <span className="nav-count">…</span>;
+  return <span className="nav-count">{n >= 1000 ? `${(n / 1000).toFixed(0)}k` : n}</span>;
+}
+
+/* ── Main ──────────────────────────────────────── */
 export default function Home() {
-  const [activeTopic, setActiveTopic]  = useState<string>("All Stories");
-  const [articles,    setArticles]     = useState<Article[]>([]);
-  const [topics,      setTopics]       = useState<Topic[]>(
+  const [activeTopic, setActiveTopic] = useState<string>("All Stories");
+  const [articles,    setArticles]    = useState<Article[]>([]);
+  const [topics,      setTopics]      = useState<Topic[]>(
     TOPICS_BASE.map(t => ({ ...t, count: null }))
   );
-  const [allCount,    setAllCount]     = useState<number | null>(null);
-  const [loading,     setLoading]      = useState(true);
-  const [error,       setError]        = useState<string | null>(null);
-  const [sortBy,      setSortBy]       = useState<"latest" | "trending" | "top">("latest");
-  const [bookmarked,  setBookmarked]   = useState<Set<string>>(new Set());
+  const [allCount,    setAllCount]    = useState<number | null>(null);
+  const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState<string | null>(null);
+  const [sortBy,      setSortBy]      = useState<"latest" | "trending" | "top">("latest");
+  const [bookmarked,  setBookmarked]  = useState<Set<string>>(new Set());
 
-  /* Fetch articles for active topic */
   const loadArticles = useCallback(async (topic: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await fetchArticles(topic);
-      setArticles(data);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to load news");
-    } finally {
-      setLoading(false);
-    }
+    setLoading(true); setError(null);
+    try { setArticles(await fetchArticles(topic)); }
+    catch (e) { setError(e instanceof Error ? e.message : "Failed to load news"); }
+    finally { setLoading(false); }
   }, []);
 
-  /* Initial load: articles + all counts in parallel */
+  // Initial load: articles + all counts in parallel
   useEffect(() => {
     loadArticles("All Stories");
-
-    // Fetch counts for all topics + "All Stories" in parallel
     fetchCount("All Stories").then(n => setAllCount(n));
     Promise.all(
       TOPICS_BASE.map(t => fetchCount(t.name).then(n => ({ id: t.id, count: n })))
-    ).then(results => {
+    ).then(results =>
       setTopics(prev =>
-        prev.map(t => {
-          const found = results.find(r => r.id === t.id);
-          return found ? { ...t, count: found.count } : t;
-        })
-      );
-    });
+        prev.map(t => ({ ...t, count: results.find(r => r.id === t.id)?.count ?? t.count }))
+      )
+    );
   }, [loadArticles]);
 
-  /* Reload when topic changes */
-  useEffect(() => {
-    loadArticles(activeTopic);
-  }, [activeTopic, loadArticles]);
+  useEffect(() => { loadArticles(activeTopic); }, [activeTopic, loadArticles]);
 
-  /* Sort */
-  const sorted = [...articles].sort((a, b) => {
-    if (sortBy === "trending") return b.views - a.views;
-    if (sortBy === "top")      return b.engagement - a.engagement;
-    return 0;
-  });
+  const sorted = [...articles].sort((a, b) =>
+    sortBy === "trending" ? b.views - a.views :
+    sortBy === "top"      ? b.engagement - a.engagement : 0
+  );
 
-  /* Derived counts */
-  const totalViews     = articles.reduce((s, a) => s + a.views, 0);
-  const avgEngagement  = articles.length
-    ? Math.round(articles.reduce((s, a) => s + a.engagement, 0) / articles.length)
-    : 0;
+  const totalViews    = articles.reduce((s, a) => s + a.views, 0);
+  const avgEngagement = articles.length
+    ? Math.round(articles.reduce((s, a) => s + a.engagement, 0) / articles.length) : 0;
 
-  /* Trending list derived from current articles */
   const trending = [...articles]
-    .sort((a, b) => b.views - a.views)
-    .slice(0, 5)
-    .map(a => ({ name: a.title.slice(0, 40) + (a.title.length > 40 ? "…" : ""), count: `${(a.views / 1000).toFixed(1)}k views`, up: true }));
+    .sort((a, b) => b.views - a.views).slice(0, 5)
+    .map(a => ({ name: a.title.length > 42 ? a.title.slice(0, 42) + "…" : a.title, count: `${(a.views / 1000).toFixed(1)}k views` }));
 
   const companies = topics.filter(t => t.type === "company");
   const regions   = topics.filter(t => t.type === "region");
   const topicList = topics.filter(t => t.type === "topic");
 
   function toggleBookmark(id: string) {
-    setBookmarked(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  }
-
-  function CountBadge({ n }: { n: number | null }) {
-    if (n === null) return <span className="nav-count">…</span>;
-    return <span className="nav-count">{n.toLocaleString()}</span>;
+    setBookmarked(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   }
 
   return (
     <div className="app-wrap">
-      {/* Ambient glow */}
       <div className="ambient">
         <div className="ambient-orb ambient-orb-1" />
         <div className="ambient-orb ambient-orb-2" />
@@ -237,7 +206,7 @@ export default function Home() {
         <div className="brand">
           <div className="brand-logo"><Zap size={16} color="white" /></div>
           <span className="brand-name">Pulse AI</span>
-          <span className="brand-badge">Beta</span>
+          <span className="brand-badge">India</span>
         </div>
 
         <button
@@ -253,25 +222,19 @@ export default function Home() {
 
         <p className="nav-section-label">Companies</p>
         {companies.map(t => (
-          <button
-            key={t.id}
-            className={`nav-btn ${activeTopic === t.name ? "active" : ""}`}
-            onClick={() => setActiveTopic(t.name)}
-          >
+          <button key={t.id} className={`nav-btn ${activeTopic === t.name ? "active" : ""}`}
+            onClick={() => setActiveTopic(t.name)}>
             <Building2 className="nav-icon" size={15} />
             <span className="nav-label">{t.name}</span>
             <CountBadge n={t.count} />
           </button>
         ))}
 
-        <p className="nav-section-label">Regions</p>
+        <p className="nav-section-label">Cities & Hubs</p>
         {regions.map(t => (
-          <button
-            key={t.id}
-            className={`nav-btn ${activeTopic === t.name ? "active" : ""}`}
-            onClick={() => setActiveTopic(t.name)}
-          >
-            <Globe className="nav-icon" size={15} />
+          <button key={t.id} className={`nav-btn ${activeTopic === t.name ? "active" : ""}`}
+            onClick={() => setActiveTopic(t.name)}>
+            <MapPin className="nav-icon" size={15} />
             <span className="nav-label">{t.name}</span>
             <CountBadge n={t.count} />
           </button>
@@ -279,11 +242,8 @@ export default function Home() {
 
         <p className="nav-section-label">Topics</p>
         {topicList.map(t => (
-          <button
-            key={t.id}
-            className={`nav-btn ${activeTopic === t.name ? "active" : ""}`}
-            onClick={() => setActiveTopic(t.name)}
-          >
+          <button key={t.id} className={`nav-btn ${activeTopic === t.name ? "active" : ""}`}
+            onClick={() => setActiveTopic(t.name)}>
             <Tag className="nav-icon" size={15} />
             <span className="nav-label">{t.name}</span>
             <CountBadge n={t.count} />
@@ -293,11 +253,11 @@ export default function Home() {
 
       {/* ── Main ── */}
       <div className="main">
-        {/* Topbar */}
         <header className="topbar">
           <div className="search-wrap">
             <Search className="search-icon-inner" size={16} />
-            <input className="search-input" type="text" placeholder="Search stories, topics, companies…" />
+            <input className="search-input" type="text"
+              placeholder="Search India tech, startups, markets…" />
             <div className="search-shortcut">
               <kbd className="kbd">⌘</kbd>
               <kbd className="kbd">K</kbd>
@@ -344,7 +304,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Content */}
         <div className="content-layout">
           <div className="feed-area">
             {/* Feed Header */}
@@ -353,21 +312,19 @@ export default function Home() {
                 <h1 className="feed-title">{activeTopic}</h1>
                 <p className="feed-subtitle">
                   {loading
-                    ? "Fetching latest stories…"
-                    : `${sorted.length} ${sorted.length === 1 ? "story" : "stories"} ${activeTopic === "All Stories" ? "across the tech ecosystem" : `about ${activeTopic}`}`
-                  }
+                    ? "Fetching latest stories from India…"
+                    : `${sorted.length} ${sorted.length === 1 ? "story" : "stories"} ${activeTopic === "All Stories" ? "across the Indian tech ecosystem" : `about ${activeTopic}`}`}
                 </p>
               </div>
               <div className="feed-controls">
-                <button className={`filter-btn ${sortBy === "latest"   ? "active" : ""}`} onClick={() => setSortBy("latest")}>
-                  <Clock size={13} /> Latest
-                </button>
-                <button className={`filter-btn ${sortBy === "trending" ? "active" : ""}`} onClick={() => setSortBy("trending")}>
-                  <TrendingUp size={13} /> Trending
-                </button>
-                <button className={`filter-btn ${sortBy === "top"      ? "active" : ""}`} onClick={() => setSortBy("top")}>
-                  <Flame size={13} /> Top
-                </button>
+                {(["latest", "trending", "top"] as const).map(s => (
+                  <button key={s} className={`filter-btn ${sortBy === s ? "active" : ""}`}
+                    onClick={() => setSortBy(s)}>
+                    {s === "latest" && <><Clock size={13} /> Latest</>}
+                    {s === "trending" && <><TrendingUp size={13} /> Trending</>}
+                    {s === "top" && <><Flame size={13} /> Top</>}
+                  </button>
+                ))}
                 <button className="filter-btn"><SlidersHorizontal size={13} /></button>
               </div>
             </div>
@@ -381,7 +338,7 @@ export default function Home() {
                 <p className="error-title">Couldn't load stories</p>
                 <p className="error-sub">{error}</p>
                 <button className="retry-btn" onClick={() => loadArticles(activeTopic)}>
-                  <RefreshCw size={13} style={{ display: "inline", marginRight: "0.4rem" }} />
+                  <RefreshCw size={13} style={{ display:"inline", marginRight:"0.4rem" }} />
                   Retry
                 </button>
               </div>
@@ -390,44 +347,31 @@ export default function Home() {
                 {sorted.map((article, i) => {
                   const isBookmarked = bookmarked.has(article.id);
                   return (
-                    <a
-                      key={article.id}
-                      href={article.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="card-link"
-                    >
-                      <article
-                        className={`card anim-fade-up`}
-                        style={{ animationDelay: `${0.06 + i * 0.06}s` }}
-                      >
+                    <a key={article.id} href={article.url} target="_blank" rel="noopener noreferrer"
+                      className="card-link">
+                      <article className="card anim-fade-up"
+                        style={{ animationDelay: `${0.06 + i * 0.06}s` }}>
                         <div className="card-top">
                           <span className={`badge ${article.topicType}`}>
-                            {article.topicType === "company" && <Building2 size={10} />}
-                            {article.topicType === "region"  && <Globe size={10} />}
-                            {article.topicType === "topic"   && <Tag size={10} />}
+                            <BadgeIcon type={article.topicType} />
                             {article.topic}
                           </span>
                           <div className="card-actions">
                             <button
                               className={`card-icon-btn ${isBookmarked ? "bookmarked" : ""}`}
                               onClick={e => { e.preventDefault(); toggleBookmark(article.id); }}
-                              title={isBookmarked ? "Remove bookmark" : "Bookmark"}
                             >
                               {isBookmarked ? <BookmarkCheck size={15} /> : <Bookmark size={15} />}
                             </button>
                           </div>
                         </div>
-
                         <h2 className="card-title">{article.title}</h2>
                         {article.description && <p className="card-desc">{article.description}</p>}
-
                         <div>
                           <div className="engagement-bar">
                             <div className="engagement-fill" style={{ width: `${article.engagement}%` }} />
                           </div>
                         </div>
-
                         <div className="card-meta">
                           <div className="meta-author">
                             <div className="author-dot">{article.authorInitials}</div>
@@ -448,29 +392,31 @@ export default function Home() {
               <div className="empty-state anim-fade-up">
                 <div className="empty-icon"><TrendingUp size={26} /></div>
                 <p className="empty-title">No stories found</p>
-                <p className="empty-sub">There are no recent updates for this topic yet. Check back soon.</p>
+                <p className="empty-sub">No recent updates for this topic. Check back soon.</p>
               </div>
             )}
           </div>
 
           {/* ── Right Panel ── */}
           <aside className="right-panel">
-            {/* AI Insight */}
+            {/* India Signal */}
             <div className="anim-slide-in d-1">
-              <p className="panel-title">AI Insight</p>
+              <p className="panel-title">India Signal</p>
               <div className="insight-card">
                 <div className="insight-header">
                   <div className="insight-icon"><Zap size={14} color="white" /></div>
-                  <span className="insight-label">Today's Signal</span>
+                  <span className="insight-label">Today's Pulse</span>
                   <span className="insight-sublabel">Live</span>
                 </div>
                 <p className="insight-text">
-                  AI infrastructure investment is accelerating globally. Nvidia's dominance and AGI research breakthroughs are converging — this is the most active week for AI news in 6 months.
+                  India's tech ecosystem is accelerating — ISRO missions, UPI crossing 14B monthly transactions,
+                  and a record wave of AI-first startups from Bangalore and Hyderabad are setting the global agenda.
                 </p>
                 <div className="insight-tags">
-                  <span className="insight-tag">#AGI</span>
-                  <span className="insight-tag">#Nvidia</span>
-                  <span className="insight-tag">#Infrastructure</span>
+                  <span className="insight-tag">#Bharat</span>
+                  <span className="insight-tag">#UPI</span>
+                  <span className="insight-tag">#ISRO</span>
+                  <span className="insight-tag">#StartupIndia</span>
                 </div>
               </div>
             </div>
@@ -500,11 +446,7 @@ export default function Home() {
                       </div>
                     </div>
                   ))
-                ) : (
-                  <div style={{ color: "var(--muted)", fontSize: "0.82rem", padding: "0.5rem" }}>
-                    No trending data yet.
-                  </div>
-                )}
+                ) : null}
               </div>
             </div>
 
