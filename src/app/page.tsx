@@ -1,138 +1,226 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Building2, Globe, Tag, Search, Bell, Bookmark, BookmarkCheck,
   Zap, TrendingUp, LayoutGrid, List, SlidersHorizontal,
-  MessageSquare, Clock, ChevronUp, ChevronRight, Flame, Eye
+  MessageSquare, Clock, ChevronUp, ChevronRight, Flame, Eye,
+  AlertCircle, RefreshCw,
 } from "lucide-react";
 
-/* ── Data ────────────────────────────────────────── */
-interface Topic {
-  id: string; name: string; type: string; count: number;
+/* ── Types ─────────────────────────────────────── */
+interface GuardianArticle {
+  id: string;
+  webTitle: string;
+  webUrl: string;
+  webPublicationDate: string;
+  fields?: { trailText?: string; byline?: string; thumbnail?: string };
 }
+
 interface Article {
-  id: number; title: string; description: string; topic: string;
-  date: string; readTime: string; author: string; authorInitials: string;
-  comments: number; views: number; engagement: number; // 0–100
+  id: string;
+  title: string;
+  description: string;
+  topic: string;
+  topicType: string;
+  date: string;
+  readTime: string;
+  author: string;
+  authorInitials: string;
+  url: string;
+  comments: number;
+  views: number;
+  engagement: number;
 }
 
-const ALL_TOPICS: Topic[] = [
-  { id: "1", name: "Apple",                 type: "company", count: 12 },
-  { id: "2", name: "Microsoft",             type: "company", count: 8  },
-  { id: "3", name: "Nvidia",                type: "company", count: 15 },
-  { id: "4", name: "North America",         type: "region",  count: 24 },
-  { id: "5", name: "Europe",                type: "region",  count: 11 },
-  { id: "6", name: "Asia Pacific",          type: "region",  count: 9  },
-  { id: "7", name: "Artificial Intelligence", type: "topic", count: 31 },
-  { id: "8", name: "Quantum Computing",     type: "topic",   count: 7  },
-  { id: "9", name: "Space Exploration",     type: "topic",   count: 19 },
-];
+interface Topic {
+  id: string;
+  name: string;
+  type: string;
+  count: number | null; // null = loading
+}
 
-const ARTICLES: Article[] = [
-  {
-    id: 1,
-    title: "The Future of Artificial General Intelligence",
-    description: "Researchers are making unprecedented leaps toward AGI, with major breakthroughs in reasoning capabilities and multi-modal architectures. What does this mean for the next decade of technology and society?",
-    topic: "Artificial Intelligence", date: "2 hours ago", readTime: "6 min",
-    author: "Elena Rodriguez", authorInitials: "ER", comments: 128, views: 4800, engagement: 87,
-  },
-  {
-    id: 2,
-    title: "Apple's M-Series Chip Rewrites the Performance Rulebook",
-    description: "The latest silicon promises a 40% performance boost with dramatically reduced power consumption, setting a new benchmark for laptop computing. Rivals are already scrambling to respond.",
-    topic: "Apple", date: "5 hours ago", readTime: "4 min",
-    author: "James Chen", authorInitials: "JC", comments: 342, views: 12300, engagement: 95,
-  },
-  {
-    id: 3,
-    title: "Quantum Supremacy: The Next Milestone Is Closer Than You Think",
-    description: "A coalition of tech giants published a joint paper outlining a credible roadmap to scalable quantum computers. The timeline might be measured in years, not decades.",
-    topic: "Quantum Computing", date: "1 day ago", readTime: "8 min",
-    author: "Dr. Sarah Jenkins", authorInitials: "SJ", comments: 89, views: 6100, engagement: 72,
-  },
-  {
-    id: 4,
-    title: "The EU's Digital Markets Act Is Reshaping Global Tech",
-    description: "New regulations are forcing the world's largest technology companies to fundamentally change how they operate within European borders — and the ripple effects are being felt globally.",
-    topic: "Europe", date: "1 day ago", readTime: "5 min",
-    author: "Marcus Thorne", authorInitials: "MT", comments: 215, views: 8700, engagement: 80,
-  },
-  {
-    id: 5,
-    title: "Microsoft Bets the Enterprise on Deeply Embedded AI",
-    description: "The Redmond giant is weaving artificial intelligence into every layer of its enterprise software stack. Early adopters report productivity gains of up to 35%, but security concerns linger.",
-    topic: "Microsoft", date: "2 days ago", readTime: "7 min",
-    author: "Linda Foster", authorInitials: "LF", comments: 156, views: 5400, engagement: 68,
-  },
-  {
-    id: 6,
-    title: "Reusable Rockets Are Making Space Cheap",
-    description: "Aerospace companies are slashing the cost of reaching orbit by up to 90% through innovative rocket recovery systems. A new era of commercial space infrastructure is beginning.",
-    topic: "Space Exploration", date: "3 days ago", readTime: "5 min",
-    author: "Robert Vance", authorInitials: "RV", comments: 412, views: 18200, engagement: 92,
-  },
-  {
-    id: 7,
-    title: "Nvidia's Blackwell Architecture Dominates AI Compute",
-    description: "Nvidia's next-generation GPU architecture is delivering performance gains that competitors cannot match — cementing its dominance in the AI training and inference market for years to come.",
-    topic: "Nvidia", date: "4 hours ago", readTime: "6 min",
-    author: "Priya Kapoor", authorInitials: "PK", comments: 204, views: 9300, engagement: 91,
-  },
-  {
-    id: 8,
-    title: "Asia Pacific Leads the Next Wave of Fintech Innovation",
-    description: "From Singapore to Seoul, a new generation of financial technology startups is building infrastructure that's leapfrogging the traditional banking systems of the West.",
-    topic: "Asia Pacific", date: "2 days ago", readTime: "9 min",
-    author: "Yuki Tanaka", authorInitials: "YT", comments: 77, views: 3200, engagement: 58,
-  },
-];
-
-const TRENDING = [
-  { name: "Artificial Intelligence", count: "31 stories", up: true },
-  { name: "Nvidia Blackwell",        count: "19 stories", up: true },
-  { name: "Space Exploration",       count: "19 stories", up: true },
-  { name: "EU Regulation",           count: "11 stories", up: false },
-  { name: "Quantum Computing",       count: "7 stories",  up: true },
+/* ── Static topic list ─────────────────────────── */
+const TOPICS_BASE: Omit<Topic, "count">[] = [
+  { id: "1",  name: "Apple",                   type: "company" },
+  { id: "2",  name: "Microsoft",               type: "company" },
+  { id: "3",  name: "Nvidia",                  type: "company" },
+  { id: "4",  name: "North America",           type: "region"  },
+  { id: "5",  name: "Europe",                  type: "region"  },
+  { id: "6",  name: "Asia Pacific",            type: "region"  },
+  { id: "7",  name: "Artificial Intelligence", type: "topic"   },
+  { id: "8",  name: "Quantum Computing",       type: "topic"   },
+  { id: "9",  name: "Space Exploration",       type: "topic"   },
 ];
 
 const ACTIVITY = [
-  { color: "blue",   text: <><strong>AI Reasoning paper</strong> is trending in your feed</>,         time: "2m ago" },
-  { color: "purple", text: <><strong>3 new stories</strong> added to Nvidia</>,                       time: "18m ago" },
-  { color: "green",  text: <><strong>Space Exploration</strong> has a new top article</>,              time: "1h ago" },
-  { color: "blue",   text: <>Your saved story on <strong>EU regulation</strong> was updated</>,       time: "3h ago" },
+  { color: "blue",   text: <><strong>AI Reasoning paper</strong> is trending in your feed</>,  time: "2m ago"  },
+  { color: "purple", text: <><strong>3 new stories</strong> added to Nvidia</>,                time: "18m ago" },
+  { color: "green",  text: <><strong>Space Exploration</strong> has a new top article</>,       time: "1h ago"  },
+  { color: "blue",   text: <>Your saved story on <strong>EU regulation</strong> was updated</>, time: "3h ago"  },
 ];
 
-/* ── Component ───────────────────────────────────── */
+/* ── Helpers ───────────────────────────────────── */
+function hashStr(s: string): number {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = (h * 33) ^ s.charCodeAt(i);
+  return Math.abs(h >>> 0);
+}
+
+function relativeTime(iso: string): string {
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (diff < 3600)    return `${Math.floor(diff / 60)} min ago`;
+  if (diff < 86400)   return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 604800)  return `${Math.floor(diff / 86400)}d ago`;
+  return `${Math.floor(diff / 604800)}w ago`;
+}
+
+function getInitials(name: string): string {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase() || "SR";
+}
+
+function transform(raw: GuardianArticle, topic: string, topicType: string): Article {
+  const h = hashStr(raw.id);
+  const byline = raw.fields?.byline?.replace(/<[^>]+>/g, "") ?? "Staff Reporter";
+  return {
+    id:            raw.id,
+    title:         raw.webTitle,
+    description:   raw.fields?.trailText?.replace(/<[^>]+>/g, "") ?? "",
+    topic,
+    topicType,
+    date:          relativeTime(raw.webPublicationDate),
+    readTime:      `${3 + (h % 7)} min`,
+    author:        byline,
+    authorInitials: getInitials(byline),
+    url:           raw.webUrl,
+    comments:      50  + (h % 400),
+    views:         800 + (h % 18000),
+    engagement:    40  + (h % 55),
+  };
+}
+
+/* ── Fetch helpers ─────────────────────────────── */
+async function fetchArticles(topic: string): Promise<Article[]> {
+  const topicData = TOPICS_BASE.find(t => t.name === topic);
+  const topicType = topicData?.type ?? "topic";
+
+  const res = await fetch(`/api/news?topic=${encodeURIComponent(topic)}`);
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+
+  const results: GuardianArticle[] = data.response?.results ?? [];
+  return results.map(r => transform(r, topic, topicType));
+}
+
+async function fetchCount(topic: string): Promise<number> {
+  const res = await fetch(`/api/news?topic=${encodeURIComponent(topic)}&countOnly=true`);
+  if (!res.ok) return 0;
+  const data = await res.json();
+  return data.response?.total ?? 0;
+}
+
+/* ── SkeletonCards ─────────────────────────────── */
+function SkeletonCards() {
+  return (
+    <div className="feed-grid">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="skeleton-card">
+          <div className="skeleton skeleton-line w-1-3" />
+          <div className="skeleton skeleton-line h-lg w-full" />
+          <div className="skeleton skeleton-line w-full" />
+          <div className="skeleton skeleton-line w-2-3" />
+          <div className="skeleton skeleton-line w-1-3" style={{ marginTop: "0.5rem" }} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ── Main Component ────────────────────────────── */
 export default function Home() {
-  const [activeTopic, setActiveTopic] = useState<string>("All Stories");
-  const [sortBy, setSortBy] = useState<"latest" | "trending" | "top">("latest");
-  const [bookmarked, setBookmarked] = useState<Set<number>>(new Set());
+  const [activeTopic, setActiveTopic]  = useState<string>("All Stories");
+  const [articles,    setArticles]     = useState<Article[]>([]);
+  const [topics,      setTopics]       = useState<Topic[]>(
+    TOPICS_BASE.map(t => ({ ...t, count: null }))
+  );
+  const [allCount,    setAllCount]     = useState<number | null>(null);
+  const [loading,     setLoading]      = useState(true);
+  const [error,       setError]        = useState<string | null>(null);
+  const [sortBy,      setSortBy]       = useState<"latest" | "trending" | "top">("latest");
+  const [bookmarked,  setBookmarked]   = useState<Set<string>>(new Set());
 
-  const companies = ALL_TOPICS.filter(t => t.type === "company");
-  const regions   = ALL_TOPICS.filter(t => t.type === "region");
-  const topics    = ALL_TOPICS.filter(t => t.type === "topic");
+  /* Fetch articles for active topic */
+  const loadArticles = useCallback(async (topic: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchArticles(topic);
+      setArticles(data);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to load news");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const base = activeTopic === "All Stories"
-    ? ARTICLES
-    : ARTICLES.filter(a => a.topic === activeTopic);
+  /* Initial load: articles + all counts in parallel */
+  useEffect(() => {
+    loadArticles("All Stories");
 
-  const sorted = [...base].sort((a, b) => {
-    if (sortBy === "trending")  return b.views - a.views;
-    if (sortBy === "top")       return b.engagement - a.engagement;
-    return 0; // latest = file order
+    // Fetch counts for all topics + "All Stories" in parallel
+    fetchCount("All Stories").then(n => setAllCount(n));
+    Promise.all(
+      TOPICS_BASE.map(t => fetchCount(t.name).then(n => ({ id: t.id, count: n })))
+    ).then(results => {
+      setTopics(prev =>
+        prev.map(t => {
+          const found = results.find(r => r.id === t.id);
+          return found ? { ...t, count: found.count } : t;
+        })
+      );
+    });
+  }, [loadArticles]);
+
+  /* Reload when topic changes */
+  useEffect(() => {
+    loadArticles(activeTopic);
+  }, [activeTopic, loadArticles]);
+
+  /* Sort */
+  const sorted = [...articles].sort((a, b) => {
+    if (sortBy === "trending") return b.views - a.views;
+    if (sortBy === "top")      return b.engagement - a.engagement;
+    return 0;
   });
 
-  const totalStories = ARTICLES.length;
-  const totalViews   = ARTICLES.reduce((s, a) => s + a.views, 0);
-  const avgEngagement = Math.round(ARTICLES.reduce((s, a) => s + a.engagement, 0) / ARTICLES.length);
+  /* Derived counts */
+  const totalViews     = articles.reduce((s, a) => s + a.views, 0);
+  const avgEngagement  = articles.length
+    ? Math.round(articles.reduce((s, a) => s + a.engagement, 0) / articles.length)
+    : 0;
 
-  function toggleBookmark(id: number) {
+  /* Trending list derived from current articles */
+  const trending = [...articles]
+    .sort((a, b) => b.views - a.views)
+    .slice(0, 5)
+    .map(a => ({ name: a.title.slice(0, 40) + (a.title.length > 40 ? "…" : ""), count: `${(a.views / 1000).toFixed(1)}k views`, up: true }));
+
+  const companies = topics.filter(t => t.type === "company");
+  const regions   = topics.filter(t => t.type === "region");
+  const topicList = topics.filter(t => t.type === "topic");
+
+  function toggleBookmark(id: string) {
     setBookmarked(prev => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+  }
+
+  function CountBadge({ n }: { n: number | null }) {
+    if (n === null) return <span className="nav-count">…</span>;
+    return <span className="nav-count">{n.toLocaleString()}</span>;
   }
 
   return (
@@ -147,9 +235,7 @@ export default function Home() {
       {/* ── Sidebar ── */}
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-logo">
-            <Zap size={16} color="white" />
-          </div>
+          <div className="brand-logo"><Zap size={16} color="white" /></div>
           <span className="brand-name">Pulse AI</span>
           <span className="brand-badge">Beta</span>
         </div>
@@ -160,7 +246,7 @@ export default function Home() {
         >
           <LayoutGrid className="nav-icon" size={16} />
           <span className="nav-label">All Stories</span>
-          <span className="nav-count">{ARTICLES.length}</span>
+          <CountBadge n={allCount} />
         </button>
 
         <div className="sidebar-divider" />
@@ -174,7 +260,7 @@ export default function Home() {
           >
             <Building2 className="nav-icon" size={15} />
             <span className="nav-label">{t.name}</span>
-            <span className="nav-count">{t.count}</span>
+            <CountBadge n={t.count} />
           </button>
         ))}
 
@@ -187,12 +273,12 @@ export default function Home() {
           >
             <Globe className="nav-icon" size={15} />
             <span className="nav-label">{t.name}</span>
-            <span className="nav-count">{t.count}</span>
+            <CountBadge n={t.count} />
           </button>
         ))}
 
         <p className="nav-section-label">Topics</p>
-        {topics.map(t => (
+        {topicList.map(t => (
           <button
             key={t.id}
             className={`nav-btn ${activeTopic === t.name ? "active" : ""}`}
@@ -200,7 +286,7 @@ export default function Home() {
           >
             <Tag className="nav-icon" size={15} />
             <span className="nav-label">{t.name}</span>
-            <span className="nav-count">{t.count}</span>
+            <CountBadge n={t.count} />
           </button>
         ))}
       </aside>
@@ -211,24 +297,15 @@ export default function Home() {
         <header className="topbar">
           <div className="search-wrap">
             <Search className="search-icon-inner" size={16} />
-            <input
-              className="search-input"
-              type="text"
-              placeholder="Search stories, topics, companies…"
-            />
+            <input className="search-input" type="text" placeholder="Search stories, topics, companies…" />
             <div className="search-shortcut">
               <kbd className="kbd">⌘</kbd>
               <kbd className="kbd">K</kbd>
             </div>
           </div>
           <div className="topbar-actions">
-            <button className="icon-btn">
-              <Bell size={17} />
-              <span className="notif-dot" />
-            </button>
-            <button className="icon-btn">
-              <Bookmark size={17} />
-            </button>
+            <button className="icon-btn"><Bell size={17} /><span className="notif-dot" /></button>
+            <button className="icon-btn"><Bookmark size={17} /></button>
             <div className="avatar">AM</div>
           </div>
         </header>
@@ -238,31 +315,29 @@ export default function Home() {
           <div className="stat-item">
             <div className="stat-icon blue"><List size={16} /></div>
             <div>
-              <div className="stat-value">{totalStories}</div>
-              <div className="stat-label">Stories Today</div>
+              <div className="stat-value">{loading ? "…" : articles.length}</div>
+              <div className="stat-label">Stories Loaded</div>
             </div>
-            <span className="stat-delta">+12%</span>
+            <span className="stat-delta">Live</span>
           </div>
           <div className="stat-item">
             <div className="stat-icon purple"><Eye size={16} /></div>
             <div>
-              <div className="stat-value">{(totalViews / 1000).toFixed(1)}k</div>
-              <div className="stat-label">Total Views</div>
+              <div className="stat-value">{loading ? "…" : `${(totalViews / 1000).toFixed(0)}k`}</div>
+              <div className="stat-label">Est. Reach</div>
             </div>
-            <span className="stat-delta">+8%</span>
           </div>
           <div className="stat-item">
             <div className="stat-icon green"><TrendingUp size={16} /></div>
             <div>
-              <div className="stat-value">{avgEngagement}%</div>
+              <div className="stat-value">{loading ? "…" : `${avgEngagement}%`}</div>
               <div className="stat-label">Avg Engagement</div>
             </div>
-            <span className="stat-delta">+3%</span>
           </div>
           <div className="stat-item">
             <div className="stat-icon amber"><Flame size={16} /></div>
             <div>
-              <div className="stat-value">{ALL_TOPICS.length}</div>
+              <div className="stat-value">{TOPICS_BASE.length}</div>
               <div className="stat-label">Active Topics</div>
             </div>
             <span className="stat-delta">Live</span>
@@ -277,95 +352,95 @@ export default function Home() {
               <div className="feed-title-group">
                 <h1 className="feed-title">{activeTopic}</h1>
                 <p className="feed-subtitle">
-                  {sorted.length} {sorted.length === 1 ? "story" : "stories"}&nbsp;
-                  {activeTopic === "All Stories" ? "across your ecosystem" : `about ${activeTopic}`}
+                  {loading
+                    ? "Fetching latest stories…"
+                    : `${sorted.length} ${sorted.length === 1 ? "story" : "stories"} ${activeTopic === "All Stories" ? "across the tech ecosystem" : `about ${activeTopic}`}`
+                  }
                 </p>
               </div>
               <div className="feed-controls">
-                <button
-                  className={`filter-btn ${sortBy === "latest" ? "active" : ""}`}
-                  onClick={() => setSortBy("latest")}
-                >
+                <button className={`filter-btn ${sortBy === "latest"   ? "active" : ""}`} onClick={() => setSortBy("latest")}>
                   <Clock size={13} /> Latest
                 </button>
-                <button
-                  className={`filter-btn ${sortBy === "trending" ? "active" : ""}`}
-                  onClick={() => setSortBy("trending")}
-                >
+                <button className={`filter-btn ${sortBy === "trending" ? "active" : ""}`} onClick={() => setSortBy("trending")}>
                   <TrendingUp size={13} /> Trending
                 </button>
-                <button
-                  className={`filter-btn ${sortBy === "top" ? "active" : ""}`}
-                  onClick={() => setSortBy("top")}
-                >
+                <button className={`filter-btn ${sortBy === "top"      ? "active" : ""}`} onClick={() => setSortBy("top")}>
                   <Flame size={13} /> Top
                 </button>
-                <button className="filter-btn">
-                  <SlidersHorizontal size={13} />
-                </button>
+                <button className="filter-btn"><SlidersHorizontal size={13} /></button>
               </div>
             </div>
 
-            {/* Cards */}
-            {sorted.length > 0 ? (
+            {/* Feed Content */}
+            {loading ? (
+              <SkeletonCards />
+            ) : error ? (
+              <div className="error-state">
+                <AlertCircle size={32} />
+                <p className="error-title">Couldn't load stories</p>
+                <p className="error-sub">{error}</p>
+                <button className="retry-btn" onClick={() => loadArticles(activeTopic)}>
+                  <RefreshCw size={13} style={{ display: "inline", marginRight: "0.4rem" }} />
+                  Retry
+                </button>
+              </div>
+            ) : sorted.length > 0 ? (
               <div className="feed-grid">
                 {sorted.map((article, i) => {
-                  const topicType = ALL_TOPICS.find(t => t.name === article.topic)?.type ?? "topic";
                   const isBookmarked = bookmarked.has(article.id);
                   return (
-                    <article
+                    <a
                       key={article.id}
-                      className={`card anim-fade-up`}
-                      style={{ animationDelay: `${0.08 + i * 0.07}s` }}
+                      href={article.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="card-link"
                     >
-                      <div className="card-top">
-                        <span className={`badge ${topicType}`}>
-                          {topicType === "company" && <Building2 size={10} />}
-                          {topicType === "region"  && <Globe size={10} />}
-                          {topicType === "topic"   && <Tag size={10} />}
-                          {article.topic}
-                        </span>
-                        <div className="card-actions">
-                          <button
-                            className={`card-icon-btn ${isBookmarked ? "bookmarked" : ""}`}
-                            onClick={() => toggleBookmark(article.id)}
-                            title={isBookmarked ? "Remove bookmark" : "Bookmark"}
-                          >
-                            {isBookmarked ? <BookmarkCheck size={15} /> : <Bookmark size={15} />}
-                          </button>
+                      <article
+                        className={`card anim-fade-up`}
+                        style={{ animationDelay: `${0.06 + i * 0.06}s` }}
+                      >
+                        <div className="card-top">
+                          <span className={`badge ${article.topicType}`}>
+                            {article.topicType === "company" && <Building2 size={10} />}
+                            {article.topicType === "region"  && <Globe size={10} />}
+                            {article.topicType === "topic"   && <Tag size={10} />}
+                            {article.topic}
+                          </span>
+                          <div className="card-actions">
+                            <button
+                              className={`card-icon-btn ${isBookmarked ? "bookmarked" : ""}`}
+                              onClick={e => { e.preventDefault(); toggleBookmark(article.id); }}
+                              title={isBookmarked ? "Remove bookmark" : "Bookmark"}
+                            >
+                              {isBookmarked ? <BookmarkCheck size={15} /> : <Bookmark size={15} />}
+                            </button>
+                          </div>
                         </div>
-                      </div>
 
-                      <h2 className="card-title">{article.title}</h2>
-                      <p className="card-desc">{article.description}</p>
+                        <h2 className="card-title">{article.title}</h2>
+                        {article.description && <p className="card-desc">{article.description}</p>}
 
-                      <div>
-                        <div className="engagement-bar">
-                          <div
-                            className="engagement-fill"
-                            style={{ width: `${article.engagement}%` }}
-                          />
+                        <div>
+                          <div className="engagement-bar">
+                            <div className="engagement-fill" style={{ width: `${article.engagement}%` }} />
+                          </div>
                         </div>
-                      </div>
 
-                      <div className="card-meta">
-                        <div className="meta-author">
-                          <div className="author-dot">{article.authorInitials}</div>
-                          <span>{article.author}</span>
+                        <div className="card-meta">
+                          <div className="meta-author">
+                            <div className="author-dot">{article.authorInitials}</div>
+                            <span>{article.author}</span>
+                          </div>
+                          <div className="meta-stat"><MessageSquare size={12} />{article.comments}</div>
+                          <span className="meta-dot">·</span>
+                          <div className="meta-stat"><Clock size={12} />{article.readTime}</div>
+                          <span className="meta-dot">·</span>
+                          <div className="meta-stat">{article.date}</div>
                         </div>
-                        <div className="meta-stat">
-                          <MessageSquare size={12} />
-                          {article.comments}
-                        </div>
-                        <span className="meta-dot">·</span>
-                        <div className="meta-stat">
-                          <Clock size={12} />
-                          {article.readTime}
-                        </div>
-                        <span className="meta-dot">·</span>
-                        <div className="meta-stat">{article.date}</div>
-                      </div>
-                    </article>
+                      </article>
+                    </a>
                   );
                 })}
               </div>
@@ -390,14 +465,12 @@ export default function Home() {
                   <span className="insight-sublabel">Live</span>
                 </div>
                 <p className="insight-text">
-                  AI infrastructure investment is accelerating globally. Nvidia's Blackwell dominance and
-                  AGI research breakthroughs are converging — this is the most active week for AI news in 6 months.
+                  AI infrastructure investment is accelerating globally. Nvidia's dominance and AGI research breakthroughs are converging — this is the most active week for AI news in 6 months.
                 </p>
                 <div className="insight-tags">
                   <span className="insight-tag">#AGI</span>
                   <span className="insight-tag">#Nvidia</span>
                   <span className="insight-tag">#Infrastructure</span>
-                  <span className="insight-tag">#Chips</span>
                 </div>
               </div>
             </div>
@@ -406,19 +479,32 @@ export default function Home() {
             <div className="anim-slide-in d-2">
               <p className="panel-title">Trending Now</p>
               <div className="trend-list">
-                {TRENDING.map((t, i) => (
-                  <div key={i} className="trend-item">
-                    <span className="trend-rank">{i + 1}</span>
-                    <div className="trend-info">
-                      <div className="trend-name">{t.name}</div>
-                      <div className="trend-count">{t.count}</div>
+                {trending.length > 0 ? (
+                  trending.map((t, i) => (
+                    <div key={i} className="trend-item">
+                      <span className="trend-rank">{i + 1}</span>
+                      <div className="trend-info">
+                        <div className="trend-name">{t.name}</div>
+                        <div className="trend-count">{t.count}</div>
+                      </div>
+                      <ChevronUp className="trend-arrow up" size={15} />
                     </div>
-                    {t.up
-                      ? <ChevronUp className="trend-arrow up" size={15} />
-                      : <ChevronRight className="trend-arrow" size={15} />
-                    }
+                  ))
+                ) : loading ? (
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="trend-item">
+                      <span className="trend-rank">{i + 1}</span>
+                      <div className="trend-info">
+                        <div className="skeleton skeleton-line w-full" style={{ height: 11 }} />
+                        <div className="skeleton skeleton-line w-1-3" style={{ height: 9, marginTop: 4 }} />
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ color: "var(--muted)", fontSize: "0.82rem", padding: "0.5rem" }}>
+                    No trending data yet.
                   </div>
-                ))}
+                )}
               </div>
             </div>
 
